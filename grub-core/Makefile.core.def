@@ -1928,6 +1928,13 @@ module = {
 };
 
 module = {
+  name = loongstub;
+  loongarch64 = loader/loongarch64/loongstub.c;
+  loongarch64 = loader/loongarch64/loongstub_kernel.S;
+};
+
+
+module = {
   name = fdt;
   efi = loader/efi/fdt.c;
   enable = fdt;
