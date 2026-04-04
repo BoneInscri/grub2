@@ -279,7 +279,7 @@ widthspec.bin
 /xfs_test
 /xzcompress_test
 /zfs_test
-=======
+
 # things ./autogen.sh will create
 /Makefile.utilgcry.def
 /ABOUT-NLS
@@ -299,6 +299,7 @@ widthspec.bin
 # stuff you're likely to make while building test trees
 grub.cfg
 /build*/
+/loongarch-build/
 
 # built objects across the whole tree
 Makefile.in
