@@ -196,7 +196,7 @@ grub_err_t
 grub_efi_mem_set_att(grub_addr_t k_address, grub_size_t k_size,
                      grub_size_t k_start, int nx_supported)
 {
-  grub_addr_t k_start_address = k_address + k_start;
+  (void) k_start;
 
   grub_uint64_t default_set_attrs = GRUB_MEM_ATTR_R | GRUB_MEM_ATTR_W | GRUB_MEM_ATTR_X;
   grub_uint64_t default_clear_attrs = 0;
@@ -220,7 +220,7 @@ grub_efi_mem_set_att(grub_addr_t k_address, grub_size_t k_size,
 
   pe_image_header = (struct grub_pe_image_header *) (sz);
 
-  if (pe_image_header > (k_address + k_size))
+  if ((grub_addr_t) pe_image_header > (k_address + k_size))
     return grub_error (GRUB_ERR_BAD_OS, N_("PE image header address is invalid"));
 
   if (grub_memcmp (pe_image_header->signature, GRUB_PE32_SIGNATURE,
@@ -236,7 +236,7 @@ grub_efi_mem_set_att(grub_addr_t k_address, grub_size_t k_size,
 
   sections = (struct grub_pe32_section_table *) (sz);
 
-  if (sections > (k_address + k_size))
+  if ((grub_addr_t) sections > (k_address + k_size))
     return grub_error (GRUB_ERR_BAD_OS, N_("Section address is invalid"));
 
   /* Parse the PE, remove W for code section, remove X for data sections, RO for the rest */
