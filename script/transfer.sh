@@ -7,7 +7,7 @@ set -e
 GRUB_MOD_SRC=/opt/grub-loongarch/lib/grub/loongarch64-efi
 HVISOR_BIN=../../hvisor/target/loongarch64-unknown-none/debug/hvisor.bin
 TRAP_VECTOR=../../hvisor/hvisor-trap-vector.txt
-DST=/media/boneinscri/LS3A5000/loongstub_img
+DST=/media/boneinscri/3A5000/loongstub_img
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 
 YELLOW='\033[1;33m'
@@ -24,7 +24,7 @@ done
 mkdir -p "$DST"
 
 # Sync loongstub grub module
-[ -f "$GRUB_MOD_SRC/loongstub.mod" ] && rsync -av --checksum "$GRUB_MOD_SRC/loongstub.mod" "$DST/" || warn "skipping loongstub.mod"
+[ -f "$GRUB_MOD_SRC/loongstub.mod" ] && rsync -rlv --checksum "$GRUB_MOD_SRC/loongstub.mod" "$DST/" || warn "skipping loongstub.mod"
 
 # Copy hvisor artifacts
 [ -f "$HVISOR_BIN" ]  && cp -v "$HVISOR_BIN"  "$DST/hvisor.bin"             || warn "skipping hvisor.bin"
