@@ -7,8 +7,16 @@ set -e
 
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 
-GRUB_MOD_DST=/boot/grub/loongarch64-efi
 BOOT_DST=/boot
+
+# Auto-detect grub module directory for loongarch64-efi
+GRUB_MOD_DST=$(find /boot -type d -name "loongarch64-efi" 2>/dev/null | head -1)
+if [ -z "$GRUB_MOD_DST" ]; then
+    echo "Error: could not find loongarch64-efi grub module directory under /boot"
+    echo "Hint: run 'find /boot -name \"*.mod\" | head -5' to locate it manually"
+    exit 1
+fi
+echo "Detected GRUB module dir: $GRUB_MOD_DST"
 
 # Verify required files exist next to this script
 for f in loongstub.mod hvisor.bin hvisor-trap-vector.txt gen_loongvisor_grub.sh; do
@@ -17,12 +25,6 @@ for f in loongstub.mod hvisor.bin hvisor-trap-vector.txt gen_loongvisor_grub.sh;
         exit 1
     fi
 done
-
-# Verify grub module directory exists
-if [ ! -d "$GRUB_MOD_DST" ]; then
-    echo "Error: GRUB module directory not found: $GRUB_MOD_DST"
-    exit 1
-fi
 
 # Install loongstub grub module
 echo "Installing loongstub.mod -> $GRUB_MOD_DST/"

@@ -1,4 +1,4 @@
-export PATH=/opt/loongarch64-clfs-8.0-cross-tools-gcc-full/cross-tools/bin:$PATH
+export PATH=/opt/cross-tools/bin:$PATHcross-tools-gcc-full/cross-tools/bin:$PATH
 
 mkdir -p ../loongarch-build
 sudo mkdir -p /opt/grub-loongarch

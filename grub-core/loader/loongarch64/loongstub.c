@@ -258,9 +258,8 @@ grub_relocate_image_real(grub_addr_t* image_addr,
 
   if (!efi_addr)
   {
-    // grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
     grub_printf("error, grub_efi_allocate_fixed_protected failed\n");
-    loop
+    return grub_error(GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
   }
   new_addr = efi_addr;
   
@@ -349,7 +348,7 @@ grub_arch_efi_rootlinux_boot_image (grub_addr_t addr, grub_size_t size, char *ar
   mempath = grub_malloc (2 * sizeof (grub_efi_memory_mapped_device_path_t));
   if (!mempath) {
     grub_printf("error, [grub_arch_efi_rootlinux_boot_image] failed to allocate mempath\n");
-    loop
+    return grub_error(GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
   }
   mempath[0].header.type = GRUB_EFI_HARDWARE_DEVICE_PATH_TYPE;
   mempath[0].header.subtype = GRUB_EFI_MEMORY_MAPPED_DEVICE_PATH_SUBTYPE;
@@ -374,8 +373,8 @@ grub_arch_efi_rootlinux_boot_image (grub_addr_t addr, grub_size_t size, char *ar
 			  (grub_efi_device_path_t *) mempath,
 			  (void *) addr, size, &image_handle);
   if (status != GRUB_EFI_SUCCESS) {
-    grub_printf("cannot load image");
-    loop
+    grub_free(mempath);
+    return grub_error(GRUB_ERR_BAD_OS, N_("cannot load image"));
   }
   grub_printf("load_image done\n");
   
@@ -383,16 +382,16 @@ grub_arch_efi_rootlinux_boot_image (grub_addr_t addr, grub_size_t size, char *ar
   loaded_image = grub_efi_get_loaded_image (image_handle);
   if (loaded_image == NULL)
   {
-    grub_printf("missing loaded_image proto");
-    loop
+    grub_free(mempath);
+    return grub_error(GRUB_ERR_BAD_OS, N_("missing loaded_image proto"));
   }
   loaded_image->load_options_size = len =
     (grub_strlen (args) + 1) * sizeof (grub_efi_char16_t);
   loaded_image->load_options =
     grub_efi_allocate_any_pages (GRUB_EFI_BYTES_TO_PAGES (loaded_image->load_options_size));
   if (!loaded_image->load_options) {
-    grub_printf("cannot allocate load_options");
-    loop
+    grub_free(mempath);
+    return grub_error(GRUB_ERR_OUT_OF_MEMORY, N_("cannot allocate load_options"));
   }
     
   grub_printf("load_options_size : %d\n", loaded_image->load_options_size);
@@ -415,7 +414,8 @@ grub_arch_efi_rootlinux_boot_image (grub_addr_t addr, grub_size_t size, char *ar
   if (loongvisor_helper.boot_ctx_load_size < sizeof(struct boot_context)) {
     grub_printf("the size of boot context is too small, check it, boot_context_size : %llx, load_size : %llx\n", 
       sizeof(struct boot_context), loongvisor_helper.boot_ctx_load_size);
-    loop
+    grub_free(mempath);
+    return grub_error(GRUB_ERR_BAD_ARGUMENT, N_("boot context size too small"));
   }
   grub_addr_t ctx = grub_efi_allocate_fixed_protected(boot_context_addr, 
     GRUB_EFI_BYTES_TO_PAGES(loongvisor_helper.boot_ctx_load_size));
@@ -434,7 +434,7 @@ grub_arch_efi_loongvisor_boot_image (grub_addr_t addr, grub_size_t size, char *a
   if (size > loongvisor_helper.image_load_size) {
     grub_printf("the size of loongvisor is too large, check it, size %llx, image_load_size %llx\n", 
       size, loongvisor_helper.image_load_size);
-    loop
+    return grub_error(GRUB_ERR_BAD_ARGUMENT, N_("loongvisor image too large for load region"));
   }
   
   // relocate loongvisor
@@ -461,21 +461,18 @@ grub_arch_efi_loongvisor_boot_image (grub_addr_t addr, grub_size_t size, char *a
   grub_printf("ready to jump to loongvisor\n");
   real_kernel_entry();
 
-  loop
-
-  return err;
+  /* Should never reach here — loongvisor took over */
+  return grub_error(GRUB_ERR_BUG, N_("loongvisor returned unexpectedly"));
 }
 
 static grub_err_t
 grub_loongvisor_boot (void)
 {
   if (!loongvisor_loaded) {
-    grub_printf("error, loongvisor is not loaded\n");
-    loop
+    return grub_error(GRUB_ERR_BAD_ARGUMENT, N_("loongvisor is not loaded"));
   }
   if (!rootlinux_loaded) {
-    grub_printf("error, rootlinux is not loaded\n");
-    loop
+    return grub_error(GRUB_ERR_BAD_ARGUMENT, N_("root linux is not loaded"));
   }
   grub_err_t err = finalize_params_loongvisor_boot ();
   if (err)
@@ -491,8 +488,7 @@ static grub_err_t
 grub_loongvisor_unload (void)
 {
   // TODO
-  grub_printf("error, grub_loongvisor_unload not tested");
-  loop
+  grub_printf("grub_loongvisor_unload: not yet implemented\n");
   return GRUB_ERR_NONE;
 }
 
@@ -577,7 +573,7 @@ grub_cmd_load_kernel(int argc, char *argv[], loongstub_boot_struct* boot_helper)
     struct linux_arch_kernel_header lh;
     if (grub_arch_efi_rootlinux_load_image_header (file, &lh) != GRUB_ERR_NONE) {
       grub_printf("error, [grub_arch_efi_linux_load_image_header] failed\n");
-      loop
+      goto fail;
     }  
   }
   if (boot_helper->boot_type == BOOT_TYPE_LOONGVISOR) {
@@ -634,7 +630,7 @@ grub_cmd_load_kernel(int argc, char *argv[], loongstub_boot_struct* boot_helper)
       rootlinux_loaded = 1;
     } else {
       grub_printf("error, unknown boot type\n");
-      loop
+      return grub_error(GRUB_ERR_BAD_ARGUMENT, N_("unknown boot type"));
     }
   }
   return 0;
@@ -759,8 +755,7 @@ grub_cmd_loongvisor (grub_command_t cmd __attribute__ ((unused)),
   // while(1) {}
   
   if (argc != 6) {
-    grub_printf("error, loongvisor cmd number should be 6\n");
-    loop
+    return grub_error(GRUB_ERR_BAD_ARGUMENT, N_("usage: loongvisor <bin> <load_addr> <load_size> <ctx_addr> <ctx_size> <trap_vector>"));
   }
   char *name = "LOONGVISOR";
   loongvisor_helper.boot_type = BOOT_TYPE_LOONGVISOR;
@@ -769,8 +764,8 @@ grub_cmd_loongvisor (grub_command_t cmd __attribute__ ((unused)),
   grub_printf("argv[1]: %s\n", argv[1]);
   grub_printf("argv[2]: %s\n", argv[2]);
   grub_printf("argv[3]: %s\n", argv[3]);
-  grub_printf("argv[4]: %s\n", argv[1]);
-  grub_printf("argv[5]: %s\n", argv[2]);
+  grub_printf("argv[4]: %s\n", argv[4]);
+  grub_printf("argv[5]: %s\n", argv[5]);
 
   // argv[1] : kernel load address (hypervisor .bin)
   loongvisor_helper.image_load_addr = (grub_addr_t) grub_strtoul(argv[1], NULL, 16);
@@ -790,12 +785,11 @@ grub_cmd_loongvisor (grub_command_t cmd __attribute__ ((unused)),
   grub_file_t file = 0;
   file = grub_file_open (argv[5], GRUB_FILE_TYPE_LINUX_KERNEL);
   if (!file) {
-    grub_printf("trap-vector file open failed\n");
-    loop
+    return grub_error(GRUB_ERR_FILE_NOT_FOUND, N_("trap-vector file open failed: %s"), argv[5]);
   }
   if (grub_file_seek (file, 0) == (grub_off_t) -1) {
-    grub_printf("trap-vector file seek failed\n");
-    loop
+    grub_file_close(file);
+    return grub_error(GRUB_ERR_FILE_READ_ERROR, N_("trap-vector file seek failed"));
   }
 
   char trap_vector_address[20];
@@ -1057,9 +1051,9 @@ grub_err_t grub_root_initrd_init (int argc, char *argv[],
         if (!root_initrd_ctx->components[i].newc_name || insert_dir (root_initrd_ctx->components[i].newc_name, &root, 0, &dir_size)) 
         {
           grub_printf("grub_root_initrd_init, error 1\n");
-          loop
-          // grub_initrd_close (root_initrd_ctx);
-          // return grub_errno;
+          free_dir(root);
+          grub_root_initrd_close(root_initrd_ctx);
+          return grub_errno ? grub_errno : grub_error(GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
         }
         name_len = grub_strlen (root_initrd_ctx->components[i].newc_name) + 1;
         if (grub_add (root_initrd_ctx->size, ALIGN_UP (sizeof (struct newc_head) + name_len, 4), &root_initrd_ctx->size) || 
@@ -1084,9 +1078,9 @@ grub_err_t grub_root_initrd_init (int argc, char *argv[],
     if (!root_initrd_ctx->components[i].file)
     {
       grub_printf("grub_root_initrd_init, error 2\n");
-      loop
-      // grub_initrd_close (root_initrd_ctx);
-      // return grub_errno;
+      free_dir(root);
+      grub_root_initrd_close(root_initrd_ctx);
+      return grub_errno ? grub_errno : grub_error(GRUB_ERR_FILE_NOT_FOUND, N_("failed to open initrd file"));
     }
     root_initrd_ctx->nfiles++;
     root_initrd_ctx->components[i].size = grub_file_size (root_initrd_ctx->components[i].file);
@@ -1171,6 +1165,28 @@ grub_cmd_root_initrd (grub_command_t cmd __attribute__ ((unused)),
     return GRUB_ERR_NONE;
   }
 
+  /* Fallback: load initrd directly into memory */
+  {
+    grub_size_t initrd_size = grub_root_get_initrd_size (&root_initrd_ctx);
+    void *initrd_mem = grub_efi_allocate_any_pages (GRUB_EFI_BYTES_TO_PAGES (initrd_size));
+    if (!initrd_mem)
+    {
+      grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("cannot allocate initrd memory"));
+      goto fail;
+    }
+    if (grub_root_initrd_load (&root_initrd_ctx, initrd_mem))
+    {
+      grub_efi_free_pages ((grub_addr_t) initrd_mem, GRUB_EFI_BYTES_TO_PAGES (initrd_size));
+      goto fail;
+    }
+    root_initrd_start = (grub_addr_t) initrd_mem;
+    root_initrd_end   = (grub_addr_t) initrd_mem + initrd_size;
+    grub_printf ("Initrd loaded @ %p - %p\n", (void *) root_initrd_start, (void *) root_initrd_end);
+  }
+
+  grub_root_initrd_close (&root_initrd_ctx);
+  return GRUB_ERR_NONE;
+
 fail:
   return grub_errno;
 }
@@ -1196,7 +1212,7 @@ GRUB_MOD_INIT (loongstub)
   my_mod = mod;
 }
 
-GRUB_MOD_FINI (loongvisor)
+GRUB_MOD_FINI (loongstub)
 {
   grub_unregister_command (cmd_loongvisor);
   grub_unregister_command (cmd_root_linux);
