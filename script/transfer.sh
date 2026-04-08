@@ -7,6 +7,9 @@ set -e
 GRUB_MOD_SRC=/opt/grub-loongarch/lib/grub/loongarch64-efi
 HVISOR_BIN=../../hvisor/target/loongarch64-unknown-none/debug/hvisor.bin
 TRAP_VECTOR=../../hvisor/hvisor-trap-vector.txt
+HVISOR_TOOL_OUTPUT=../../hvisor-tool/output
+HVISOR_TOOL_EXAMPLES=../../hvisor-tool/examples/3a6000-loongarch64
+GUEST_VMLINUX_BIN=../../Guest/linux-6.13/vmlinux.bin
 DST=/media/boneinscri/3A5000/loongstub_img
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 
@@ -14,25 +17,52 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 warn() { echo -e "${YELLOW}Warning: $*${NC}"; }
 
+cp_file() {
+    local src="$1" dst="$2"
+    if [ -f "$src" ]; then
+        rsync -av --no-perms --no-owner --no-group "$src" "$dst"
+    else
+        warn "not found, skipping: $src"
+    fi
+}
+
 # Verify sources exist (warn only, continue if missing)
 for f in "$HVISOR_BIN" "$TRAP_VECTOR" "$GRUB_MOD_SRC/loongstub.mod"; do
-    if [ ! -f "$f" ]; then
-        warn "not found: $f"
-    fi
+    [ ! -f "$f" ] && warn "not found: $f"
 done
 
 mkdir -p "$DST"
 
-# Sync loongstub grub module
-[ -f "$GRUB_MOD_SRC/loongstub.mod" ] && rsync -rlv --checksum "$GRUB_MOD_SRC/loongstub.mod" "$DST/" || warn "skipping loongstub.mod"
+# Copy loongstub grub module
+cp_file "$GRUB_MOD_SRC/loongstub.mod" "$DST/"
 
 # Copy hvisor artifacts
-[ -f "$HVISOR_BIN" ]  && cp -v "$HVISOR_BIN"  "$DST/hvisor.bin"             || warn "skipping hvisor.bin"
-[ -f "$TRAP_VECTOR" ] && cp -v "$TRAP_VECTOR"  "$DST/hvisor-trap-vector.txt" || warn "skipping hvisor-trap-vector.txt"
+cp_file "$HVISOR_BIN"   "$DST/hvisor.bin"
+cp_file "$TRAP_VECTOR"  "$DST/hvisor-trap-vector.txt"
 
 # Copy scripts
-[ -f "$SCRIPT_DIR/gen_loongvisor_grub.sh" ] && cp -v "$SCRIPT_DIR/gen_loongvisor_grub.sh" "$DST/" || warn "skipping gen_loongvisor_grub.sh"
-[ -f "$SCRIPT_DIR/deploy.sh" ]              && cp -v "$SCRIPT_DIR/deploy.sh"               "$DST/" || warn "skipping deploy.sh"
+cp_file "$SCRIPT_DIR/gen_loongvisor_grub.sh"      "$DST/"
+cp_file "$SCRIPT_DIR/deploy.sh"                   "$DST/"
+cp_file "$SCRIPT_DIR/install_hvisor.sh"           "$DST/"
+cp_file "$SCRIPT_DIR/re-install_hvisor.sh"        "$DST/"
+cp_file "$SCRIPT_DIR/kill_virtio.sh"              "$DST/"
+cp_file "$SCRIPT_DIR/test1.sh"                    "$DST/"
+cp_file "$SCRIPT_DIR/../../Debug/dump_acpi.sh"    "$DST/"
+
+# Copy hvisor-tool artifacts
+cp_file "$HVISOR_TOOL_OUTPUT/hvisor"    "$DST/"
+cp_file "$HVISOR_TOOL_OUTPUT/hvisor.ko" "$DST/"
+
+# Copy hvisor-tool examples/3a6000-loongarch64
+if [ -d "$HVISOR_TOOL_EXAMPLES" ]; then
+    rsync -av --no-perms --no-owner --no-group "$HVISOR_TOOL_EXAMPLES/" "$DST/examples/"
+else
+    warn "not found, skipping: $HVISOR_TOOL_EXAMPLES"
+fi
+
+# Copy guest kernel
+mkdir -p "$DST/Guest"
+cp_file "$GUEST_VMLINUX_BIN" "$DST/Guest/vmlinux.bin"
 
 sync
 echo "Transfer done: $DST"
