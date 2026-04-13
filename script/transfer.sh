@@ -10,6 +10,11 @@ TRAP_VECTOR=../../hvisor/hvisor-trap-vector.txt
 HVISOR_TOOL_OUTPUT=../../hvisor-tool/output
 HVISOR_TOOL_EXAMPLES=../../hvisor-tool/examples/3a6000-loongarch64
 GUEST_VMLINUX_BIN=../../Guest/linux-6.13/vmlinux.bin
+GUEST_VMLINUX_DTB_BIN=../../Guest/linux-6.13-dtb/vmlinux
+GUEST_SEL4_BIN=$(find ../../Guest/sel4-la/build_3A5000/images/ -maxdepth 1 -name "*.bin" 2>/dev/null | head -n 1)
+[ -z "$GUEST_SEL4_BIN" ] && warn "no .bin found in ../../Guest/sel4-la/build_3A5000/images/"
+GUEST_RTTHREAD_BIN=../../Guest/rt-thread-loongarch/bsp/qemu-virt64-loongarch/rtthread.bin
+GUEST_NPUCORE_BIN=../../Guest/NPUCore/os/target/loongarch64-unknown-linux-gnu/release/os.bin
 DST=/media/boneinscri/3A5000/loongstub_img
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 
@@ -47,11 +52,24 @@ cp_file "$SCRIPT_DIR/install_hvisor.sh"           "$DST/"
 cp_file "$SCRIPT_DIR/re-install_hvisor.sh"        "$DST/"
 cp_file "$SCRIPT_DIR/kill_virtio.sh"              "$DST/"
 cp_file "$SCRIPT_DIR/test1.sh"                    "$DST/"
+cp_file "$SCRIPT_DIR/test2.sh"                    "$DST/"
+cp_file "$SCRIPT_DIR/test3.sh"                    "$DST/"
+cp_file "$SCRIPT_DIR/test4.sh"                    "$DST/"
+cp_file "$SCRIPT_DIR/test5.sh"                    "$DST/"
 cp_file "$SCRIPT_DIR/../../Debug/dump_acpi.sh"    "$DST/"
 
 # Copy hvisor-tool artifacts
-cp_file "$HVISOR_TOOL_OUTPUT/hvisor"    "$DST/"
-cp_file "$HVISOR_TOOL_OUTPUT/hvisor.ko" "$DST/"
+cp_file "$HVISOR_TOOL_OUTPUT/hvisor"            "$DST/"
+cp_file "$HVISOR_TOOL_OUTPUT/hvisor.ko"         "$DST/"
+cp_file "$HVISOR_TOOL_OUTPUT/hyperamp_linux"    "$DST/"
+cp_file "$HVISOR_TOOL_OUTPUT/hyperamp_backend"  "$DST/"
+
+# Copy hyperamp test scripts
+if [ -d "$SCRIPT_DIR/hyperamp_test" ]; then
+    rsync -av --no-perms --no-owner --no-group "$SCRIPT_DIR/hyperamp_test/" "$DST/hyperamp_test/"
+else
+    warn "not found, skipping: $SCRIPT_DIR/hyperamp_test"
+fi
 
 # Copy hvisor-tool examples/3a6000-loongarch64
 if [ -d "$HVISOR_TOOL_EXAMPLES" ]; then
@@ -63,6 +81,10 @@ fi
 # Copy guest kernel
 mkdir -p "$DST/Guest"
 cp_file "$GUEST_VMLINUX_BIN" "$DST/Guest/vmlinux.bin"
+cp_file "$GUEST_VMLINUX_DTB_BIN" "$DST/Guest/vmlinux-dtb.bin"
+cp_file "$GUEST_SEL4_BIN" "$DST/Guest/sel4.bin"
+cp_file "$GUEST_RTTHREAD_BIN" "$DST/Guest/rtthread.bin"
+cp_file "$GUEST_NPUCORE_BIN" "$DST/Guest/NPUCore.bin"
 
 sync
 echo "Transfer done: $DST"
