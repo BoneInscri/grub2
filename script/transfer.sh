@@ -15,7 +15,7 @@ GUEST_SEL4_BIN=$(find ../../Guest/sel4-la/build_3A5000/images/ -maxdepth 1 -name
 [ -z "$GUEST_SEL4_BIN" ] && warn "no .bin found in ../../Guest/sel4-la/build_3A5000/images/"
 GUEST_RTTHREAD_BIN=../../Guest/rt-thread-loongarch/bsp/qemu-virt64-loongarch/rtthread.bin
 GUEST_NPUCORE_BIN=../../Guest/NPUCore/os/target/loongarch64-unknown-linux-gnu/release/os.bin
-DST=/media/boneinscri/3A5000/loongstub_img
+DST=/media/$(whoami)/3A5000/loongstub_img
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 
 YELLOW='\033[1;33m'

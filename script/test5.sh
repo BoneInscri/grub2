@@ -1,5 +1,6 @@
 sudo bash install_hvisor.sh
 cd examples
-sudo bash daemon virtio_cfg5.json
+sudo bash daemon.sh test/virtio_cfg5.json
+sleep 3
 cd start_zone
 sudo bash start_zone5.sh
