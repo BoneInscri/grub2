@@ -52,6 +52,11 @@ echo "Generating /etc/grub.d/09_loongvisor ..."
 bash "$SCRIPT_DIR/gen_loongvisor_grub.sh"
 
 echo "Updating grub config ..."
-update-grub
+if command -v update-grub >/dev/null 2>&1; then
+    update-grub
+else
+    echo "update-grub not found, trying grub-mkconfig..."
+    grub-mkconfig -o /boot/grub/grub.cfg
+fi
 
 echo "Deploy done."

@@ -4,19 +4,21 @@
 
 set -e
 
-GRUB_MOD_SRC=/opt/grub-loongarch/lib/grub/loongarch64-efi
-HVISOR_BIN=../../hvisor/target/loongarch64-unknown-none/debug/hvisor.bin
-TRAP_VECTOR=../../hvisor/hvisor-trap-vector.txt
-HVISOR_TOOL_OUTPUT=../../hvisor-tool/output
-HVISOR_TOOL_EXAMPLES=../../hvisor-tool/examples/3a6000-loongarch64
-GUEST_VMLINUX_BIN=../../Guest/linux-6.13/vmlinux.bin
-GUEST_VMLINUX_DTB_BIN=../../Guest/linux-6.13-dtb/vmlinux
-GUEST_SEL4_BIN=$(find ../../Guest/sel4-la/build_3A5000/images/ -maxdepth 1 -name "*.bin" 2>/dev/null | head -n 1)
-[ -z "$GUEST_SEL4_BIN" ] && warn "no .bin found in ../../Guest/sel4-la/build_3A5000/images/"
-GUEST_RTTHREAD_BIN=../../Guest/rt-thread-loongarch/bsp/qemu-virt64-loongarch/rtthread.bin
-GUEST_NPUCORE_BIN=../../Guest/NPUCore/os/target/loongarch64-unknown-linux-gnu/release/os.bin
-DST=/media/$(whoami)/3A5000/loongstub_img
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
+BASE=$SCRIPT_DIR/../..
+
+GRUB_MOD_SRC=/opt/grub-loongarch/lib/grub/loongarch64-efi
+HVISOR_BIN=$BASE/hvisor/target/loongarch64-unknown-none/debug/hvisor.bin
+TRAP_VECTOR=$BASE/hvisor/hvisor-trap-vector.txt
+HVISOR_TOOL_OUTPUT=$BASE/hvisor-tool/output
+HVISOR_TOOL_EXAMPLES=$BASE/hvisor-tool/examples/3a6000-loongarch64
+GUEST_VMLINUX_BIN=$BASE/Guest/linux-6.13/vmlinux.bin
+GUEST_VMLINUX_DTB_BIN=$BASE/Guest/linux-6.13-dtb/vmlinux
+GUEST_SEL4_BIN=$(find "$BASE/Guest/sel4-la/build_3A5000/images/" -maxdepth 1 -name "*.bin" 2>/dev/null | head -n 1)
+[ -z "$GUEST_SEL4_BIN" ] && warn "no .bin found in $BASE/Guest/sel4-la/build_3A5000/images/"
+GUEST_RTTHREAD_BIN=$BASE/Guest/rt-thread-loongarch/bsp/qemu-virt64-loongarch/rtthread.bin
+GUEST_NPUCORE_BIN=$BASE/Guest/NPUCore/os/target/loongarch64-unknown-linux-gnu/release/os.bin
+DST=/media/$(whoami)/3A5000/loongstub_img
 
 YELLOW='\033[1;33m'
 NC='\033[0m'
@@ -35,6 +37,12 @@ cp_file() {
 for f in "$HVISOR_BIN" "$TRAP_VECTOR" "$GRUB_MOD_SRC/loongstub.mod"; do
     [ ! -f "$f" ] && warn "not found: $f"
 done
+
+MOUNT_POINT=/media/$(whoami)/3A5000
+if ! mountpoint -q "$MOUNT_POINT"; then
+    echo "Error: USB drive not mounted at $MOUNT_POINT"
+    exit 1
+fi
 
 mkdir -p "$DST"
 
@@ -85,6 +93,15 @@ cp_file "$GUEST_VMLINUX_DTB_BIN" "$DST/Guest/vmlinux-dtb.bin"
 cp_file "$GUEST_SEL4_BIN" "$DST/Guest/sel4.bin"
 cp_file "$GUEST_RTTHREAD_BIN" "$DST/Guest/rtthread.bin"
 cp_file "$GUEST_NPUCORE_BIN" "$DST/Guest/NPUCore.bin"
+
+# Copy HighSpeedCProxy-la
+HIGHSPEEDCPROXY_SRC=$BASE/HighSpeedCProxy-la
+if [ -d "$HIGHSPEEDCPROXY_SRC" ]; then
+    echo "Copying HighSpeedCProxy-la..."
+    rsync -av --no-perms --no-owner --no-group "$HIGHSPEEDCPROXY_SRC/" "$DST/HighSpeedCProxy-la/"
+else
+    warn "not found, skipping: $HIGHSPEEDCPROXY_SRC"
+fi
 
 sync
 echo "Transfer done: $DST"
